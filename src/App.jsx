@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Blog from './components/Blog'
 import BlogForm from './components/BlogForm'
 import Login from './components/Login'
+import Notification from './components/Notification'
 import blogService from './services/blogs'
 import loginService from './services/login'
 
@@ -11,11 +12,11 @@ const App = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
-  const [title, setTitle] = useState('')
-  const [author, setAuthor] = useState('')
-  const [url, setUrl] = useState('')
-
   const [user, setUser] = useState(null)
+
+  const [notification, setNotification] = useState(null)
+  const [notificationType, setNotificationType] = useState(null)
+  const [createVisible, setCreateVisible] = useState(false)
 
   useEffect(() => {
     const loggedUserJSON = window.localStorage.getItem('loggedBloglistUser')
@@ -34,6 +35,16 @@ const App = () => {
     }
   }, [user])
 
+  const showNotification = (message, type) => {
+    setNotification(message)
+    setNotificationType(type)
+
+    setTimeout(() => {
+      setNotification(null)
+      setNotificationType(null)
+    }, 5000)
+  }
+
   const handleLogin = async (event) => {
     event.preventDefault()
 
@@ -51,25 +62,30 @@ const App = () => {
       setUser(loggedInUser)
       setUsername('')
       setPassword('')
+
+      showNotification(
+        `Welcome ${loggedInUser.name}!`,
+        'success'
+      )
     } catch (error) {
-      console.log(error)
+      showNotification(
+        'Invalid username or password',
+        'error'
+      )
     }
   }
 
   const handleLogout = () => {
     window.localStorage.removeItem('loggedBloglistUser')
     setUser(null)
+
+    showNotification(
+      'Successfully logged out',
+      'success'
+    )
   }
 
-  const handleCreateBlog = async (event) => {
-    event.preventDefault()
-
-    const newBlog = {
-      title,
-      author,
-      url
-    }
-
+  const createBlog = async (newBlog) => {
     try {
       const createdBlog = await blogService.create(
         newBlog,
@@ -78,42 +94,61 @@ const App = () => {
 
       setBlogs(blogs.concat(createdBlog))
 
-      setTitle('')
-      setAuthor('')
-      setUrl('')
+      showNotification(
+        `a new blog ${createdBlog.title} by ${createdBlog.author} added`,
+        'success'
+      )
+
+      setCreateVisible(false)
     } catch (error) {
-      console.log(error)
+      showNotification(
+        'Failed to create blog',
+        'error'
+      )
     }
   }
 
   if (user === null) {
     return (
-      <Login
-        username={username}
-        password={password}
-        handleUsernameChange={({ target }) => setUsername(target.value)}
-        handlePasswordChange={({ target }) => setPassword(target.value)}
-        handleSubmit={handleLogin}
-      />
+      <div>
+        <Notification
+          message={notification}
+          type={notificationType}
+        />
+
+        <Login
+          username={username}
+          password={password}
+          handleUsernameChange={({ target }) => setUsername(target.value)}
+          handlePasswordChange={({ target }) => setPassword(target.value)}
+          handleSubmit={handleLogin}
+        />
+      </div>
     )
   }
 
   return (
     <div>
+      <Notification
+        message={notification}
+        type={notificationType}
+      />
+
       <p>
         {user.name} logged in
         <button onClick={handleLogout}>logout</button>
       </p>
 
-      <BlogForm
-        title={title}
-        author={author}
-        url={url}
-        handleTitleChange={({ target }) => setTitle(target.value)}
-        handleAuthorChange={({ target }) => setAuthor(target.value)}
-        handleUrlChange={({ target }) => setUrl(target.value)}
-        handleSubmit={handleCreateBlog}
-      />
+      {createVisible ? (
+        <BlogForm
+          createBlog={createBlog}
+          handleCancel={() => setCreateVisible(false)}
+        />
+      ) : (
+        <button onClick={() => setCreateVisible(true)}>
+          create new blog
+        </button>
+      )}
 
       <h2>blogs</h2>
 
